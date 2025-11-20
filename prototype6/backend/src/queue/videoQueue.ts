@@ -1,7 +1,7 @@
 // src/queue/videoQueue.ts
 import { Queue } from "bullmq";
 
-const videoQueue = new Queue("video-transcode", {
+const videoQueue = new Queue("video", {
   connection: {
     host: "localhost",
     port: 6379,

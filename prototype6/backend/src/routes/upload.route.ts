@@ -1,14 +1,13 @@
-import { Router, Request, Response } from "express";
-import { upload } from "../utils/storage";
-import videoQueue from "../queue/videoQueue";
+import { eq } from "drizzle-orm";
+import { Request, Response, Router } from "express";
 import path from "path";
-import { uploadFileToS3 } from "../utils/uploadToS3";
 import { uploadDir } from "../config/paths";
-import { v4 as uuidv4 } from "uuid";
 import { db } from "../db";
 import { metaDb, outboxDB } from "../db/schema";
+import videoQueue from "../queue/videoQueue";
 import { computeFileHash } from "../utils/computeHash";
-import { eq } from "drizzle-orm";
+import { upload } from "../utils/storage";
+import { uploadFileToS3 } from "../utils/uploadToS3";
 
 const router = Router();
 
@@ -17,43 +16,37 @@ router.post("/", upload.single("file"), async (req: Request, res: Response) => {
     return res.status(400).json({ error: "No file uploaded" });
   }
 
-  const uploadId = uuidv4();
-
   const localPath = path.join(uploadDir, req.file.filename);
 
-  const fileHash = await computeFileHash(localPath);
-  console.log("File hash:", fileHash);
-
-  const existing = await db
-    .select()
-    .from(metaDb)
-    .where(eq(metaDb.fileHash, fileHash));
-
-  if (existing.length > 0) {
-    console.log("Duplicate upload detected skipping S3 upload.");
-    return res.json({
-      uploadId: existing[0]?.uploadId,
-      message: "This video already exists in the system.",
-      duplicate: true,
-    });
-  }
-
-  const s3Key = `uploads/${fileHash}/original.mp4`;
-  const bucket = "uploaded_videos";
-
-  // Upload to S3 (MinIO)
-  await uploadFileToS3(localPath, s3Key);
-  console.log("*****");
-
   try {
-    // throw new Error("Testing transaction failure");
-    await db.transaction(async (tx) => {
-      // Insert into meta_db
+    const fileHash = await computeFileHash(localPath);
+    console.log("File hash:", fileHash);
+
+    const existing = await db
+      .select()
+      .from(metaDb)
+      .where(eq(metaDb.fileHash, fileHash))
+      .limit(1);
+
+    if (existing.length > 0) {
+      console.log("Duplicate upload detected skipping S3 upload.");
+      return res.json({
+        uploadId: existing[0]?.uploadId,
+        message: "This video already exists in the system.",
+        duplicate: true,
+      });
+    }
+    const s3Key = `uploads/${fileHash}/original.mp4`;
+    const bucket = "uploaded_videos";
+
+    await uploadFileToS3(localPath, s3Key);
+    console.log("*****");
+
+    const result = await db.transaction(async (tx) => {
       const [video] = await tx
         .insert(metaDb)
         .values({
-          uploadId,
-          filename: req.file?.originalname || "unknown",
+          filename: req.file!.originalname,
           fileHash,
           s3Key,
           s3Bucket: bucket,
@@ -61,37 +54,39 @@ router.post("/", upload.single("file"), async (req: Request, res: Response) => {
         })
         .returning({ id: metaDb.id, uploadId: metaDb.uploadId });
 
+      if (!video) {
+        throw new Error("Failed to insert video metadata");
+      }
+
       await tx.insert(outboxDB).values({
         uploadId: video?.uploadId,
-        filename: req.file?.originalname || "unknown",
+        filename: req.file!.originalname,
         s3Key,
         s3Bucket: bucket,
-        uploadedAt: new Date(),
+        status: "pending",
       });
+      return video;
+    });
+
+    res.json({
+      uploadId: result.uploadId,
+      message: "File uploaded and queued for processing",
+      status: "uploaded",
     });
   } catch (error) {
-    console.error("Database transaction failed:", error);
+    console.error("Upload error:", error);
     return res.status(500).json({
-      error: "File uploaded but database save failed. Retry will reconcile.",
+      error: "Upload failed",
+      details: error instanceof Error ? error.message : "Unknown error",
     });
   }
-
-  // const job = await videoQueue.add("transcode", {
-  //   filename: req.file.filename,
-  //   filepath: req.file.path,
-  // });
-
-  res.json({
-    uploadId,
-    message: "File uploaded and metadata stored successfully",
-  });
 });
 
 router.get("/status/:id", async (req: Request, res: Response) => {
   const { id } = req.params;
 
   if (!id) {
-    return res.status(400).json({ error: "Job ID is required" });
+    return res.status(400).json({ error: "Upload ID is required" });
   }
   const job = await videoQueue.getJob(id);
   if (!job) return res.status(404).json({ error: "Job not found" });
