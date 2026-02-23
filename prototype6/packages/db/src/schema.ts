@@ -7,6 +7,32 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 
+// Users table
+export const usersTable = pgTable("users", {
+  id: serial("id").primaryKey(),
+  userId: uuid("user_id").defaultRandom().notNull().unique(),
+  email: varchar("email", { length: 255 }).notNull().unique(),
+  passwordHash: varchar("password_hash", { length: 255 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Refresh tokens table
+export const refreshTokensTable = pgTable("refresh_tokens", {
+  id: serial("id").primaryKey(),
+  tokenId: uuid("token_id").defaultRandom().notNull().unique(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => usersTable.userId, {
+      onDelete: "cascade",
+      onUpdate: "cascade",
+    }),
+  tokenHash: varchar("token_hash", { length: 255 }).notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  revokedAt: timestamp("revoked_at"),
+});
+
 export const metaDb = pgTable("meta_db", {
   id: serial("id").primaryKey(),
   uploadId: uuid("upload_id").defaultRandom().notNull().unique(),
