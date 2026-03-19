@@ -10,6 +10,25 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* ReelFlow theme colors */
+  --color-rf-primary: #103956;
+  --color-rf-primary-container: #2b506e;
+  --color-rf-on-primary: #ffffff;
+  --color-rf-on-primary-container: #9ec2e5;
+  --color-rf-secondary: #5e5e5e;
+  --color-rf-tertiary: #705d00;
+  --color-rf-tertiary-fixed: #ffe174;
+  --color-rf-tertiary-container: #c9a810;
+  --color-rf-on-tertiary-fixed: #221b00;
+  --color-rf-surface: #fafaf5;
+  --color-rf-surface-container: #eeeee9;
+  --color-rf-surface-container-low: #f4f4ef;
+  --color-rf-surface-container-high: #e8e8e3;
+  --color-rf-surface-container-highest: #e3e3de;
+  --color-rf-surface-container-lowest: #ffffff;
+  --color-rf-on-surface: #1a1c19;
+  --color-rf-outline-variant: #c3c6d5;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -23,4 +42,10 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+.dot-grid {
+  background-image: radial-gradient(circle, #737784 1px, transparent 1px);
+  background-size: 24px 24px;
+  opacity: 0.08;
 }
