@@ -14,12 +14,16 @@
     "clean": "turbo run clean && rm -rf node_modules"
   },
   "devDependencies": {
+    "@aws-sdk/lib-storage": "^3.1029.0",
+    "drizzle-kit": "^0.31.7",
     "turbo": "^2.0.0",
     "typescript": "^5.9.3"
   },
   "engines": {
     "node": ">=18.0.0"
   },
-  "packageManager": "pnpm@9.0.0"
+  "packageManager": "pnpm@9.0.0",
+  "dependencies": {
+    "drizzle-orm": "^0.44.7"
+  }
 }
-

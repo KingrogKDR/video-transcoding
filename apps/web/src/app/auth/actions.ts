@@ -1,54 +1,64 @@
 "use server";
 
+import { ReadonlyRequestCookies } from "next/dist/server/web/spec-extension/adapters/request-cookies";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
+const API_URL = "http://localhost:8000";
+
 export async function requireAuth() {
-  const user = await getCurrentUser();
-  if (!user) {
-    // Clear stale cookies before redirecting
-    const c = await cookies();
-    c.delete("accessToken");
-    c.delete("refreshToken");
-    redirect("/signin");
-  }
-  return user;
+  return await getCurrentUser(); // no redirect here
+}
+
+function clearAuthCookies(c: ReadonlyRequestCookies) {
+  c.delete("accessToken");
+  c.delete("refreshToken");
 }
 
 export async function signOut() {
   const c = await cookies();
 
-  const accessToken = c.get("accessToken")?.value;
-  const refreshToken = c.get("refreshToken")?.value;
+  const accessToken = c.get("accessToken")?.value || undefined;
+  const refreshToken = c.get("refreshToken")?.value || undefined;
 
-  if (accessToken) {
-    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/logout`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({ refreshToken }),
-    });
+  try {
+    if (accessToken && refreshToken) {
+      await fetch(`${API_URL}/auth/logout`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ refreshToken }),
+      });
+    }
+  } catch {
+    // ignore logout failure
   }
 
-  c.delete("accessToken");
-  c.delete("refreshToken");
-
+  // Always clear cookies
+  clearAuthCookies(c);
   redirect("/signin");
 }
 
 export async function getCurrentUser() {
   const c = await cookies();
-  let accessToken = c.get("accessToken")?.value;
 
+  let accessToken = c.get("accessToken")?.value || undefined;
+
+  // 🔒 Prevent infinite refresh attempts
+  let triedRefresh = false;
+
+  // Step 1: Try refresh if no access token
   if (!accessToken) {
-    // Try refreshing
     accessToken = await refreshAccessToken();
+    triedRefresh = true;
+
     if (!accessToken) return null;
   }
 
-  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, {
+  // Step 2: Try fetching user
+  const res = await fetch(`${API_URL}/auth/me`, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
@@ -60,13 +70,16 @@ export async function getCurrentUser() {
     return data.user;
   }
 
-  // Access token expired — try refresh
-  if (res.status === 401) {
+  // Step 3: Try refresh ONLY ONCE
+  if (res.status === 401 && !triedRefresh) {
     const newToken = await refreshAccessToken();
+
     if (!newToken) return null;
 
-    const retry = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, {
-      headers: { Authorization: `Bearer ${newToken}` },
+    const retry = await fetch(`${API_URL}/auth/me`, {
+      headers: {
+        Authorization: `Bearer ${newToken}`,
+      },
       cache: "no-store",
     });
 
@@ -81,35 +94,28 @@ export async function getCurrentUser() {
 
 async function refreshAccessToken(): Promise<string | null> {
   const c = await cookies();
+  if (c.get("refreshFailed")?.value === "true") {
+    return null;
+  }
+
   const refreshToken = c.get("refreshToken")?.value;
 
   if (!refreshToken) return null;
 
-  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/refresh`, {
+  const res = await fetch(`http://localhost:3000/api/auth/refresh`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      cookie: c.toString(),
+    },
+    cache: "no-store",
     body: JSON.stringify({ refreshToken }),
   });
 
-  if (!res.ok) return null;
+  if (!res.ok) {
+    return null;
+  }
 
   const tokens = await res.json();
-
-  c.set("accessToken", tokens.accessToken, {
-    httpOnly: false,
-    secure: false,
-    sameSite: "lax",
-    path: "/",
-  });
-
-  if (tokens.refreshToken) {
-    c.set("refreshToken", tokens.refreshToken, {
-      httpOnly: true,
-      secure: false,
-      sameSite: "lax",
-      path: "/",
-    });
-  }
 
   return tokens.accessToken;
 }

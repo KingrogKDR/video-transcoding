@@ -1,10 +1,11 @@
-import jwt from "jsonwebtoken";
-import crypto from "crypto";
-import { eq, and, isNull } from "drizzle-orm";
 import { db, refreshTokensTable } from "@video-transcoding/db";
+import crypto from "crypto";
+import { and, eq, isNull } from "drizzle-orm";
+import jwt from "jsonwebtoken";
 import { AUTH_CONFIG } from "../config/auth";
 
-const JWT_SECRET = process.env.JWT_SECRET || "dev-jwt-secret-change-in-production";
+const JWT_SECRET =
+  process.env.JWT_SECRET || "dev-jwt-secret-change-in-production";
 const JWT_REFRESH_SECRET =
   process.env.JWT_REFRESH_SECRET || "dev-refresh-secret-change-in-production";
 
@@ -53,7 +54,7 @@ export function hashToken(token: string): string {
 export async function storeRefreshToken(
   userId: string,
   tokenId: string,
-  token: string
+  token: string,
 ): Promise<void> {
   const tokenHash = hashToken(token);
   const expiresAt = new Date(Date.now() + AUTH_CONFIG.REFRESH_TOKEN_EXPIRY_MS);
@@ -80,14 +81,14 @@ export async function revokeAllUserTokens(userId: string): Promise<void> {
     .where(
       and(
         eq(refreshTokensTable.userId, userId),
-        isNull(refreshTokensTable.revokedAt)
-      )
+        isNull(refreshTokensTable.revokedAt),
+      ),
     );
 }
 
 export async function isRefreshTokenValid(
   tokenId: string,
-  token: string
+  token: string,
 ): Promise<boolean> {
   const tokenHash = hashToken(token);
 
@@ -98,8 +99,8 @@ export async function isRefreshTokenValid(
       and(
         eq(refreshTokensTable.tokenId, tokenId),
         eq(refreshTokensTable.tokenHash, tokenHash),
-        isNull(refreshTokensTable.revokedAt)
-      )
+        isNull(refreshTokensTable.revokedAt),
+      ),
     )
     .limit(1);
 
@@ -113,7 +114,7 @@ export async function isRefreshTokenValid(
 
 export async function generateTokenPair(
   userId: string,
-  email: string
+  email: string,
 ): Promise<{ accessToken: string; refreshToken: string }> {
   const tokenId = crypto.randomUUID();
 
