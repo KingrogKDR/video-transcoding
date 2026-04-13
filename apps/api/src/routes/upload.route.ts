@@ -1,13 +1,13 @@
+import { db, metaDb, outboxDB } from "@video-transcoding/db";
 import { eq } from "drizzle-orm";
 import { Request, Response, Router } from "express";
 import path from "path";
 import { uploadDir } from "../config/paths";
-import { db, metaDb, outboxDB } from "@video-transcoding/db";
 import { computeFileHash } from "../utils/computeHash";
 import { upload } from "../utils/storage";
 import { uploadFileToS3 } from "../utils/uploadToS3";
 
-const router = Router();
+const router: Router = Router();
 
 router.post("/", upload.single("file"), async (req: Request, res: Response) => {
   if (!req.file) {
@@ -112,4 +112,3 @@ router.get("/status/:id", async (req: Request, res: Response) => {
 });
 
 export default router;
-

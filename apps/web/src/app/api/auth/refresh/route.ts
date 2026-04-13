@@ -9,33 +9,31 @@ export async function POST() {
     return NextResponse.json({ error: "No refresh token" }, { status: 401 });
   }
 
-  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/refresh`, {
+  const res = await fetch("http://localhost:8000/auth/refresh", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify({ refreshToken }),
   });
 
   if (!res.ok) {
     c.delete("accessToken");
     c.delete("refreshToken");
+
     return NextResponse.json({ error: "Refresh failed" }, { status: 401 });
   }
 
   const tokens = await res.json();
 
   c.set("accessToken", tokens.accessToken, {
-    httpOnly: false,
-    secure: false,
-    sameSite: "lax",
     path: "/",
   });
 
   c.set("refreshToken", tokens.refreshToken, {
     httpOnly: true,
-    secure: false,
-    sameSite: "lax",
     path: "/",
   });
 
-  return NextResponse.json({ success: true });
+  return NextResponse.json(tokens);
 }

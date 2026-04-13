@@ -1,8 +1,12 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { requireAuth, signOut } from "../auth/actions";
 
 export default async function Dashboard() {
   const user = await requireAuth();
+  if (!user) {
+    redirect("/signin");
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">

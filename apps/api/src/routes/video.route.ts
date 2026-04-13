@@ -1,10 +1,10 @@
-import { Router, Request, Response } from "express";
-import { eq, desc } from "drizzle-orm";
+import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { db, metaDb } from "@video-transcoding/db";
 import { s3Client } from "@video-transcoding/s3";
-import { GetObjectCommand } from "@aws-sdk/client-s3";
+import { desc, eq } from "drizzle-orm";
+import { Request, Response, Router } from "express";
 
-const router = Router();
+const router: Router = Router();
 
 // GET /videos - List current user's videos
 router.get("/", async (req: Request, res: Response) => {
@@ -39,7 +39,8 @@ router.get("/stream/:jobId/*path", async (req: Request, res: Response) => {
   }
 
   const s3Key = `videos/${jobId}/${filePath}`;
-  const bucket = process.env.OUTPUT_BUCKET || process.env.S3_BUCKET || "uploaded-videos";
+  const bucket =
+    process.env.OUTPUT_BUCKET || process.env.S3_BUCKET || "uploaded-videos";
 
   try {
     const command = new GetObjectCommand({

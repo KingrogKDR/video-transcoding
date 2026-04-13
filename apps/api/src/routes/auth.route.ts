@@ -1,23 +1,23 @@
-import { Router, Request, Response } from "express";
-import { eq } from "drizzle-orm";
 import { db, usersTable } from "@video-transcoding/db";
-import { hashPassword, verifyPassword } from "../utils/password";
-import {
-  registerSchema,
-  loginSchema,
-  refreshTokenSchema,
-  logoutSchema,
-} from "../utils/validation";
+import { eq } from "drizzle-orm";
+import { Request, Response, Router } from "express";
+import { authenticate } from "../middleware/auth.middleware";
 import {
   generateTokenPair,
-  verifyRefreshToken,
   isRefreshTokenValid,
-  revokeRefreshToken,
   revokeAllUserTokens,
+  revokeRefreshToken,
+  verifyRefreshToken,
 } from "../services/token.service";
-import { authenticate } from "../middleware/auth.middleware";
+import { hashPassword, verifyPassword } from "../utils/password";
+import {
+  loginSchema,
+  logoutSchema,
+  refreshTokenSchema,
+  registerSchema,
+} from "../utils/validation";
 
-const router = Router();
+const router: Router = Router();
 
 // POST /auth/register
 router.post("/register", async (req: Request, res: Response) => {
@@ -139,7 +139,9 @@ router.post("/refresh", async (req: Request, res: Response) => {
 
     const isValid = await isRefreshTokenValid(payload.tokenId, refreshToken);
     if (!isValid) {
-      return res.status(401).json({ error: "Refresh token expired or revoked" });
+      return res
+        .status(401)
+        .json({ error: "Refresh token expired or revoked" });
     }
 
     // Revoke the old refresh token (token rotation)
