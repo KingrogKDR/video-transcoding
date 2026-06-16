@@ -5,6 +5,7 @@ import {
   timestamp,
   uuid,
   varchar,
+  integer,
 } from "drizzle-orm/pg-core";
 
 // Users table
@@ -60,9 +61,22 @@ export const outboxDB = pgTable("outbox", {
   filename: varchar("filename", { length: 255 }).notNull(),
   s3Key: text("s3_key").notNull(),
   s3Bucket: varchar("s3_bucket", { length: 255 }).notNull(),
-  status: varchar("status", { length: 50 }).default("pending"),
-  error: text("error"),
+  // pending | processing | sent | failed | dead
+  status: varchar("status", { length: 50 })
+    .notNull()
+    .default("pending"),  error: text("error"),
   jobId: varchar("job_id", { length: 255 }),
+
+  retryCount: integer("retry_count")
+    .notNull()
+    .default(0),
+
+  nextRetryAt: timestamp("next_retry_at", {
+    withTimezone: true,
+  })
+    .notNull()
+    .defaultNow(),
+
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
